@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build the vllm-rs Rust frontend binary and install it into the vllm package.
+# Build vLLM Rust artifacts and install them into the vllm package.
 # Usage: ./build_rust.sh [--debug]
 #
 # By default builds in release mode. Pass --debug for faster compile times
@@ -10,6 +10,9 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
 RUST_DIR="$REPO_ROOT/rust"
 TARGET_PATH="${VLLM_RS_TARGET_PATH:-$REPO_ROOT/vllm/vllm-rs}"
+RUST_EXTENSION_TARGET_DIR="${VLLM_RUST_EXTENSION_TARGET_DIR:-$REPO_ROOT/vllm}"
+RUST_EXTENSION_PY_LIMITED_API="${VLLM_RUST_EXTENSION_PY_LIMITED_API:-cp38}"
+RUST_EXTENSION_ABI3_FEATURE="pyo3/abi3-py${RUST_EXTENSION_PY_LIMITED_API#cp}"
 
 # Read the required toolchain from rust-toolchain.toml.
 TOOLCHAIN=$(grep '^channel' "$REPO_ROOT/rust-toolchain.toml" | sed 's/.*= *"\(.*\)"/\1/')
@@ -42,3 +45,13 @@ cargo +"$TOOLCHAIN" build "${PROFILE_ARGS[@]}" \
 mkdir -p "$(dirname "$TARGET_PATH")"
 cp "$RUST_DIR/target/$PROFILE_DIR/vllm-rs" "$TARGET_PATH"
 echo "Installed vllm-rs to $TARGET_PATH"
+
+cargo +"$TOOLCHAIN" build "${PROFILE_ARGS[@]}" \
+    --manifest-path "$RUST_DIR/Cargo.toml" \
+    -p vllm-tool-parser-py \
+    --features "pyo3/extension-module $RUST_EXTENSION_ABI3_FEATURE"
+
+mkdir -p "$RUST_EXTENSION_TARGET_DIR"
+cp "$RUST_DIR/target/$PROFILE_DIR/lib_rust_tool_parser.so" \
+    "$RUST_EXTENSION_TARGET_DIR/_rust_tool_parser.abi3.so"
+echo "Installed _rust_tool_parser to $RUST_EXTENSION_TARGET_DIR/_rust_tool_parser.abi3.so"

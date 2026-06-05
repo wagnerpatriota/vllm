@@ -126,7 +126,9 @@ ENV CARGO_BUILD_JOBS=4
 RUN --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/workspace/rust/target \
-    VLLM_RS_TARGET_PATH=/workspace/vllm-rs bash build_rust.sh
+    VLLM_RS_TARGET_PATH=/workspace/vllm-rs \
+    VLLM_RUST_EXTENSION_TARGET_DIR=/workspace/rust-extensions \
+    bash build_rust.sh
 #################### RUST BUILD IMAGE ####################
 
 #################### WHEEL BUILD IMAGE ####################
@@ -139,9 +141,10 @@ ENV UV_HTTP_TIMEOUT=500
 
 COPY . .
 
-# Drop the pre-built rust frontend binary into the source tree. setup.py
-# detects it and ships it as-is, skipping the local cargo build.
+# Drop the pre-built Rust artifacts into the source tree. setup.py detects
+# them and ships them as-is, skipping the local cargo build.
 COPY --from=rust-build /workspace/vllm-rs vllm/vllm-rs
+COPY --from=rust-build /workspace/rust-extensions/_rust_*.so vllm/
 
 RUN python3 use_existing_torch.py
 

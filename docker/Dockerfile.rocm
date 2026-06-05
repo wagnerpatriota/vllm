@@ -157,8 +157,11 @@ RUN --mount=type=cache,id=vllm-rocm-cargo-registry,target=/root/.cargo/registry,
     --mount=type=cache,id=vllm-rocm-cargo-git,target=/root/.cargo/git,sharing=locked \
     --mount=type=cache,id=vllm-rocm-cargo-target,target=${COMMON_WORKDIR}/vllm/rust/target,sharing=locked \
     cd ${COMMON_WORKDIR}/vllm \
-    && VLLM_RS_TARGET_PATH=/tmp/vllm-rs bash build_rust.sh \
-    && test -x /tmp/vllm-rs
+    && VLLM_RS_TARGET_PATH=/tmp/vllm-rs \
+       VLLM_RUST_EXTENSION_TARGET_DIR=/tmp/rust-extensions \
+       bash build_rust.sh \
+    && test -x /tmp/vllm-rs \
+    && test -f /tmp/rust-extensions/_rust_tool_parser.abi3.so
 
 # -----------------------
 # vLLM native build stages
@@ -209,9 +212,10 @@ ENV VLLM_TARGET_DEVICE=rocm
 
 COPY --from=csrc-build ${COMMON_WORKDIR}/vllm/dist /precompiled-wheels
 
-# Drop the pre-built rust frontend binary into the source tree. setup.py
-# detects it and ships it as-is, skipping the local cargo build.
+# Drop the pre-built Rust artifacts into the source tree. setup.py detects
+# them and ships them as-is, skipping the local cargo build.
 COPY --from=rust-build /tmp/vllm-rs ${COMMON_WORKDIR}/vllm/vllm/vllm-rs
+COPY --from=rust-build /tmp/rust-extensions/_rust_*.so ${COMMON_WORKDIR}/vllm/vllm/
 
 RUN --mount=type=cache,id=vllm-rocm-uv,target=/root/.cache/uv \
     cd vllm \
@@ -417,9 +421,10 @@ FROM fetch_vllm AS build_vllm_wheel_release
 
 ARG COMMON_WORKDIR
 
-# Drop the pre-built rust frontend binary into the source tree. setup.py
-# detects it and ships it as-is, skipping the local cargo build.
+# Drop the pre-built Rust artifacts into the source tree. setup.py detects
+# them and ships them as-is, skipping the local cargo build.
 COPY --from=rust-build /tmp/vllm-rs ${COMMON_WORKDIR}/vllm/vllm/vllm-rs
+COPY --from=rust-build /tmp/rust-extensions/_rust_*.so ${COMMON_WORKDIR}/vllm/vllm/
 
 # Create /install directory for custom wheels
 RUN mkdir -p /install
