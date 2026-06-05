@@ -405,8 +405,8 @@ class TransferTopology:
 
         self._engines: dict[EngineId, EngineTransferInfo] = {}
 
-        # Figure out whether the first dimension of the cache is K/V
-        # or num_blocks.
+        # Probe the per-layer cache shape (num_blocks mocked to 1) so we can
+        # detect cross-layer block layouts below.
         attn_backend = self.attn_backends[0]
         if not self.is_mamba:
             _MOCK_BLOCK_SIZE = 16
@@ -417,14 +417,6 @@ class TransferTopology:
                 head_size=1,
             )
             logger.debug("Test kv_cache_shape: %s", kv_cache_shape)
-        # In the standardized layout K and V are packed into the content dim,
-        # so attention caches are 4D [num_blocks, num_kv_heads, block_size,
-        # 2*head_size] with num_blocks leading (blocks-first). We mock
-        # num_blocks to 1 for the dimension check below. Hybrid SSM models also
-        # assume a blocks-first layout.
-        self._is_kv_layout_blocks_first = self.is_mamba or (
-            len(kv_cache_shape) == 4 and kv_cache_shape[0] == 1
-        )
 
         self._cross_layers_blocks = False
         if self.tensor_shape is not None:
@@ -474,10 +466,6 @@ class TransferTopology:
     # ============================================================
     # Layout properties
     # ============================================================
-
-    @property
-    def is_kv_layout_blocks_first(self) -> bool:
-        return self._is_kv_layout_blocks_first
 
     @property
     def cross_layers_blocks(self) -> bool:
@@ -586,8 +574,6 @@ class TransferTopology:
             # Swap [2<>num_blocks] dims for hybrid SSM layout.
             cache = cache.transpose(0, 1)
 
-        # K and V are packed into one tensor (content dim), so each layer
-        # registers as a single region.
         return [cache]
 
     def describe(self, remote_engine_id: EngineId) -> str:
