@@ -72,7 +72,7 @@ rust_extensions = [
     RustExtension(
         target="vllm._rust_tool_parser",
         path="rust/src/tool-parser/python/Cargo.toml",
-        features=["extension-module"],
+        features=["pyo3/extension-module"],
         binding=Binding.PyO3,
         optional=not should_require_rust_frontend(),
     ),
